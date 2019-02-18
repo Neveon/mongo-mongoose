@@ -11,7 +11,12 @@
 // Add `mongodb` and `mongoose` to the project's `package.json`. Then require 
 // `mongoose`. Store your **mLab** database URI in the private `.env` file 
 // as `MONGO_URI`. Connect to the database using `mongoose.connect(<Your URI>)`
+const mongoose = require("mongoose");
+//mongodb atlas security for sandbox must whitelist ip for anywhere
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true });
 
+//Notifying if we connect successfully or if an error occurs
+var db = mongoose.connection;
 
 /** # SCHEMAS and MODELS #
 /*  ====================== */
@@ -37,9 +42,14 @@
 // `default` values. See the [mongoose docs](http://mongoosejs.com/docs/guide.html).
 
 // <Your code here >
+const Schema = mongoose.Schema;
+var person = new Schema({
+  name: { type: String, required: true, default: undefined },
+  age: { type: Number, default: undefined },
+  favoriteFoods: [String] //Arrays implicitly have a default valye of an empty array ([])
+});
 
-var Person /* = <Your Model> */
-
+var Person = mongoose.model('Person', person);
 // **Note**: GoMix is a real server, and in real servers interactions with
 // the db are placed in handler functions, to be called when some event happens
 // (e.g. someone hits an endpoint on your API). We'll follow the same approach
@@ -76,8 +86,23 @@ var Person /* = <Your Model> */
 // });
 
 var createAndSavePerson = function(done) {
+  //Creating onePerson
+  var onePerson = new Person({
+    name: 'John Doe',
+    age: 17,
+    favoriteFoods: ['pizza', 'almonds']
+  });
   
-  done(null /*, data*/);
+  
+  onePerson.save(function(err, data) {
+    if(err) {
+      console.error(err);
+      return done(err);      
+    } else{
+    console.log(data.name);
+    done(null, data);
+    }
+  });
 
 };
 
@@ -90,10 +115,18 @@ var createAndSavePerson = function(done) {
 // Create many people using `Model.create()`, using the function argument
 // 'arrayOfPeople'.
 
+var arrayOfPeople = [{name:'Stacy Smith', age: 21, favoriteFoods: ['potato', 'tomato']},{name:'Johnny Bravo', age: 18, favoriteFoods: ['burgers', 'lean meat']},{name:'Wally Wallaby', age: 11, favoriteFoods: ['candy', 'cake']}];
+
 var createManyPeople = function(arrayOfPeople, done) {
     
-    done(null/*, data*/);
+  Person.create(arrayOfPeople, function(err,listOfObjects){
+    if(err) {
+     console.error(err); 
+    }
     
+    console.log(listOfObjects);
+    done(null,listOfObjects);
+  });
 };
 
 /** # C[R]UD part II - READ #
@@ -106,10 +139,14 @@ var createManyPeople = function(arrayOfPeople, done) {
 // object ) as the first argument, and returns an **array** of matches.
 // It supports an extremely wide range of search options. Check it in the docs.
 // Use the function argument `personName` as search key.
+var personName = "/john/ig";
 
 var findPeopleByName = function(personName, done) {
   
-  done(null/*, data*/);
+  Person.find({name: personName}, function(err, data){
+    err ? done(err, data) : done(null, data);
+  });
+  
 
 };
 
@@ -121,10 +158,12 @@ var findPeopleByName = function(personName, done) {
 // Find just one person which has a certain food in her favorites,
 // using `Model.findOne() -> Person`. Use the function
 // argument `food` as search key
+var food = 'tomato';
 
 var findOneByFood = function(food, done) {
-
-  done(null/*, data*/);
+  Person.findOne({favoriteFoods: food}, function(err, data){
+    err ? done(err, data) : done(null, data);
+  });
   
 };
 
@@ -136,10 +175,13 @@ var findOneByFood = function(food, done) {
 // method for it. Find the (only!!) person having a certain Id,
 // using `Model.findById() -> Person`.
 // Use the function argument 'personId' as search key.
+var personId = '5c68c844cd6c4e2454b1d587';
 
 var findPersonById = function(personId, done) {
+  Person.findById({_id: personId}, function(err, data){
+    err ? done(err,data): done(null,data);
+  });
   
-  done(null/*, data*/);
   
 };
 
@@ -171,7 +213,23 @@ var findPersonById = function(personId, done) {
 var findEditThenSave = function(personId, done) {
   var foodToAdd = 'hamburger';
   
-  done(null/*, data*/);
+  //Copying method from above findPersonById
+  //and saving the edit
+    
+  Person.findById(personId, function(err, data){
+    //Updating doc here with .push()
+    data.favoriteFoods.push(foodToAdd);
+    
+    data.save(function(err, data){
+      if(err){
+        done(err,data); 
+      } else{
+        done(null, data);
+      }
+    });
+    
+  });
+  
 };
 
 /** 9) New Update : Use `findOneAndUpdate()` */
@@ -191,8 +249,11 @@ var findEditThenSave = function(personId, done) {
 
 var findAndUpdate = function(personName, done) {
   var ageToSet = 20;
-
-  done(null/*, data*/);
+  
+  Person.findOneAndUpdate({name: personName}, {age:20}, {new:true},function(err, data){
+    (err) ? done(err, data) : done(null, data);
+  });
+  
 };
 
 /** # CRU[D] part IV - DELETE #
@@ -206,8 +267,9 @@ var findAndUpdate = function(personName, done) {
 // As usual, use the function argument `personId` as search key.
 
 var removeById = function(personId, done) {
-  
-  done(null/*, data*/);
+  Person.findByIdAndRemove(personId,function(err, data){
+    (err) ? done(err) : done(null, data);
+  });
     
 };
 
@@ -223,8 +285,10 @@ var removeById = function(personId, done) {
 
 var removeManyPeople = function(done) {
   var nameToRemove = "Mary";
-
-  done(null/*, data*/);
+  
+  Person.remove({name:nameToRemove},function(err, data){
+    (err) ? done(err) : done(null, data);
+  });
 };
 
 /** # C[R]UD part V -  More about Queries # 
@@ -248,7 +312,20 @@ var removeManyPeople = function(done) {
 var queryChain = function(done) {
   var foodToSearch = "burrito";
   
-  done(null/*, data*/);
+  let query = Person.find({favoriteFoods:foodToSearch}/*, function(err,data){
+      if(err) {
+        console.error(err);
+      }
+  }*/);//Query
+  
+  query.sort({name: 'asc'}) //sort by name - ascending order
+  .limit(2) //Limiting to only two documents
+  .select('-age')//EXCLUDING age from the data
+  .exec(function(err, data){//Callback
+    console.log(data);
+    (err) ? done(err) : done(null,data);
+  });
+  
 };
 
 /** **Well Done !!**
